@@ -25,8 +25,8 @@ if [ ! -d "db" ] || [ -z "$(ls -A db 2>/dev/null)" ]; then
 elif [ ! -f ".last_ingest" ]; then
     echo "📂 No ingest record found. Indexing materials..."
     NEEDS_INGEST=true
-elif find materials -name "*.pdf" -newer ".last_ingest" | grep -q .; then
-    echo "📂 New or updated PDFs detected. Re-indexing..."
+elif find materials \( -name "*.pdf" -o -name "*.docx" -o -name "*.xlsx" -o -name "*.xls" \) -newer ".last_ingest" | grep -q .; then
+    echo "📂 检测到新增或修改的材料，重新索引..."
     NEEDS_INGEST=true
 else
     echo "✅ Course materials up to date"
