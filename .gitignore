@@ -1,0 +1,21 @@
+# Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# App data
+db/
+tutor.db
+learner_profile.json
+.last_ingest
+
+# Materials (放你自己的PDF，不提交到仓库)
+materials/*.pdf
+
+# macOS
+.DS_Store
+
+# Claude
+.claude/
