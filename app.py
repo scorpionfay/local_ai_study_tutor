@@ -16,13 +16,13 @@ from database import (
 init_db()
 
 st.set_page_config(
-    page_title="My AI Tutor",
+    page_title="AI 学习助教",
     page_icon="🎓",
     layout="wide"
 )
 
-st.title("🎓 My Personal AI Tutor")
-st.caption("Powered by gemma4:e4b · RAG · your course materials")
+st.title("🎓 我的 AI 学习助教")
+st.caption("基于 gemma4:e4b · RAG 检索 · 你的课程材料")
 
 # ── Session state init ────────────────────────────────────────────────────────
 if "profile" not in st.session_state:
@@ -31,7 +31,7 @@ if "profile" not in st.session_state:
     save_profile(st.session_state.profile)
 
 if "chain" not in st.session_state:
-    with st.spinner("⏳ Loading your course materials..."):
+    with st.spinner("⏳ 正在加载课程材料..."):
         chain, embeddings, llm = build_chain()
         st.session_state.chain = chain
         st.session_state.embeddings = embeddings
@@ -40,9 +40,8 @@ if "chain" not in st.session_state:
 if "session_id" not in st.session_state:
     st.session_state.session_id = create_session()
     welcome = (
-        "Hi! I'm your personal tutor. Ask me anything from your course "
-        "materials and I'll help you understand it deeply. "
-        "What would you like to learn today?"
+        "你好！我是你的专属学习助教。你可以问我任何课程材料里的问题，"
+        "我会帮你深入理解。今天想学什么？"
     )
     st.session_state.messages = [{
         "role": "assistant",
@@ -58,7 +57,7 @@ if "confirm_reset" not in st.session_state:
 with st.sidebar:
 
     # New chat
-    if st.button("➕ New chat", use_container_width=True, type="primary"):
+    if st.button("➕ 新对话", use_container_width=True, type="primary"):
         # Save memory of the current session before starting a new one
         async_save_memory(
             st.session_state.messages,
@@ -66,7 +65,7 @@ with st.sidebar:
             st.session_state.llm
         )
         st.session_state.session_id = create_session()
-        welcome = "New session started! What would you like to study today?"
+        welcome = "新对话已开始！今天想学什么？"
         st.session_state.messages = [{
             "role": "assistant",
             "content": welcome,
@@ -78,16 +77,16 @@ with st.sidebar:
     st.divider()
 
     # ── Past sessions ─────────────────────────────────────────────────────────
-    st.subheader("🕘 Past sessions")
+    st.subheader("🕘 历史对话")
     sessions = list_sessions()
 
     if not sessions:
-        st.caption("No past sessions yet.")
+        st.caption("还没有历史对话")
     else:
         for s in sessions:
             date_str = s["created_at"][:16].replace("T", " ")
             is_active = s["id"] == st.session_state.session_id
-            label = f"{'▶ ' if is_active else ''}Session {s['id']}  •  {s['msg_count']} msgs\n{date_str}"
+            label = f"{'▶ ' if is_active else ''}对话 {s['id']}  •  {s['msg_count']} 条消息\n{date_str}"
             col1, col2 = st.columns([5, 1])
             with col1:
                 if st.button(label, key=f"sess_{s['id']}", use_container_width=True):
@@ -105,17 +104,17 @@ with st.sidebar:
     st.divider()
 
     # ── Learner profile ───────────────────────────────────────────────────────
-    st.subheader("📊 Learner profile")
+    st.subheader("📊 学习档案")
     profile = st.session_state.profile
-    st.write(f"**Sessions completed:** {profile['session_count']}")
+    st.write(f"**已完成学习次数：** {profile['session_count']}")
 
     st.divider()
 
     # Weak topics
-    st.write("**🔴 Struggling with:**")
+    st.write("**🔴 薄弱知识点：**")
     weak_to_remove = None
     if not profile["weak_topics"]:
-        st.caption("_Nothing flagged yet_")
+        st.caption("_暂未标记_")
     for i, t in enumerate(profile["weak_topics"]):
         col1, col2 = st.columns([5, 1])
         with col1:
@@ -129,12 +128,12 @@ with st.sidebar:
         st.rerun()
 
     new_weak = st.text_input(
-        "Add topic I struggle with...",
+        "添加薄弱知识点...",
         key="new_weak_input",
         label_visibility="collapsed",
-        placeholder="Add topic I struggle with..."
+        placeholder="添加薄弱知识点..."
     )
-    if st.button("➕ Add", key="add_weak") and new_weak.strip():
+    if st.button("➕ 添加", key="add_weak") and new_weak.strip():
         if new_weak.strip() not in profile["weak_topics"]:
             profile["weak_topics"].append(new_weak.strip())
             save_profile(profile)
@@ -143,10 +142,10 @@ with st.sidebar:
     st.divider()
 
     # Strong topics
-    st.write("**🟢 Strong areas:**")
+    st.write("**🟢 掌握良好：**")
     strong_to_remove = None
     if not profile["strong_topics"]:
-        st.caption("_Nothing flagged yet_")
+        st.caption("_暂未标记_")
     for i, t in enumerate(profile["strong_topics"]):
         col1, col2 = st.columns([5, 1])
         with col1:
@@ -160,12 +159,12 @@ with st.sidebar:
         st.rerun()
 
     new_strong = st.text_input(
-        "Add topic I know well...",
+        "添加掌握良好的知识点...",
         key="new_strong_input",
         label_visibility="collapsed",
-        placeholder="Add topic I know well..."
+        placeholder="添加掌握良好的知识点..."
     )
-    if st.button("➕ Add", key="add_strong") and new_strong.strip():
+    if st.button("➕ 添加", key="add_strong") and new_strong.strip():
         if new_strong.strip() not in profile["strong_topics"]:
             profile["strong_topics"].append(new_strong.strip())
             save_profile(profile)
@@ -174,39 +173,39 @@ with st.sidebar:
     st.divider()
 
     # Notes
-    st.write("**📝 Personal notes:**")
+    st.write("**📝 个人笔记：**")
     notes = st.text_area(
-        "notes",
+        "笔记",
         value=profile.get("notes", ""),
         height=120,
         key="notes_input",
         label_visibility="collapsed",
-        placeholder="Write anything you want to remember..."
+        placeholder="写下任何你想记住的内容..."
     )
-    if st.button("💾 Save notes", use_container_width=True):
+    if st.button("💾 保存笔记", use_container_width=True):
         profile["notes"] = notes
         save_profile(profile)
-        st.success("Notes saved!")
+        st.success("笔记已保存！")
 
     st.divider()
 
     # Reset
-    st.write("**⚠️ Danger zone:**")
+    st.write("**⚠️ 危险操作：**")
     if not st.session_state.confirm_reset:
-        if st.button("🔄 Reset profile", use_container_width=True):
+        if st.button("🔄 重置学习档案", use_container_width=True):
             st.session_state.confirm_reset = True
             st.rerun()
     else:
-        st.warning("This clears all topics, notes and resets your session count. Are you sure?")
+        st.warning("这将清除所有知识点标记、笔记和学习次数，确定吗？")
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("✅ Yes, reset", use_container_width=True):
+            if st.button("✅ 确认重置", use_container_width=True):
                 st.session_state.profile = reset_profile()
                 st.session_state.confirm_reset = False
-                st.success("Profile reset!")
+                st.success("档案已重置！")
                 st.rerun()
         with col2:
-            if st.button("❌ Cancel", use_container_width=True):
+            if st.button("❌ 取消", use_container_width=True):
                 st.session_state.confirm_reset = False
                 st.rerun()
 
@@ -218,7 +217,7 @@ for msg in st.session_state.messages:
             st.caption(msg["timestamp"][:16].replace("T", " "))
 
 # Chat input
-if question := st.chat_input("Ask your tutor anything..."):
+if question := st.chat_input("问助教任何问题..."):
     # Show and save user message
     st.session_state.messages.append({
         "role": "user",
@@ -231,7 +230,7 @@ if question := st.chat_input("Ask your tutor anything..."):
 
     # Get tutor answer
     with st.chat_message("assistant"):
-        with st.spinner("Thinking..."):
+        with st.spinner("思考中..."):
             answer = ask_tutor(
                 question,
                 st.session_state.profile,
