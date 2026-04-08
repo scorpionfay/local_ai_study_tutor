@@ -1,8 +1,8 @@
-# ingest.py — 索引 materials/ 下所有 PDF、DOCX、XLSX（含子目录）
+# ingest.py — 索引 materials/ 下所有文件（含子目录），针对中文优化
 
 import pathlib
 import pandas as pd
-from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader
+from langchain_community.document_loaders import PyMuPDFLoader, Docx2txtLoader
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
@@ -11,8 +11,10 @@ from langchain_ollama import OllamaEmbeddings
 MATERIALS_DIR = pathlib.Path("./materials")
 SUPPORTED = {".pdf", ".docx", ".xlsx", ".xls"}
 
+# 中文分句分隔符：优先按段落、句子断开，避免在词语中间切断
+CHINESE_SEPARATORS = ["\n\n", "\n", "。", "！", "？", "；", "…", " ", ""]
+
 def load_xlsx(path: pathlib.Path) -> list[Document]:
-    """将 Excel 每个 sheet 转成文本 Document。"""
     docs = []
     try:
         xl = pd.read_excel(path, sheet_name=None, dtype=str)
@@ -40,7 +42,8 @@ def load_all_documents() -> list[Document]:
         try:
             suffix = f.suffix.lower()
             if suffix == ".pdf":
-                docs = PyPDFLoader(str(f)).load()
+                # PyMuPDFLoader 对中文字体和排版支持更好
+                docs = PyMuPDFLoader(str(f)).load()
             elif suffix == ".docx":
                 docs = Docx2txtLoader(str(f)).load()
             elif suffix in {".xlsx", ".xls"}:
@@ -59,8 +62,12 @@ print("📂 扫描 ./materials（含子目录）...")
 docs = load_all_documents()
 print(f"✅ 共加载 {len(docs)} 个文档片段")
 
-print("✂️  切分成 chunks ...")
-splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=60)
+print("✂️  切分 chunks（中文分句模式）...")
+splitter = RecursiveCharacterTextSplitter(
+    chunk_size=400,       # 中文字符密度高，400字约等于英文600词的信息量
+    chunk_overlap=50,
+    separators=CHINESE_SEPARATORS,
+)
 chunks = splitter.split_documents(docs)
 print(f"✅ 共生成 {len(chunks)} 个 chunks")
 
