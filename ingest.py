@@ -3,7 +3,7 @@
 import pathlib
 import subprocess
 import pandas as pd
-from langchain_community.document_loaders import PyMuPDFLoader, Docx2txtLoader
+from langchain_community.document_loaders import PyMuPDFLoader, Docx2txtLoader, PyPDFLoader
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
@@ -16,22 +16,35 @@ EMBED_MODEL = "shaw/dmeta-embedding-zh"
 # 中文分句分隔符：优先按段落、句子断开，避免在词语中间切断
 CHINESE_SEPARATORS = ["\n\n", "\n", "。", "！", "？", "；", "…", " ", ""]
 
-def load_xlsx(path: pathlib.Path) -> list[Document]:
-    docs = []
+
+def load_pdf(path: pathlib.Path) -> list[Document]:
+    """PyMuPDF 优先，损坏文件 fallback 到 PyPDF。"""
     try:
-        xl = pd.read_excel(path, sheet_name=None, dtype=str)
-        for sheet_name, df in xl.items():
-            df = df.fillna("")
-            text = f"[{path.name} — {sheet_name}]\n"
-            text += df.to_string(index=False)
-            if text.strip():
-                docs.append(Document(
-                    page_content=text,
-                    metadata={"source": str(path), "sheet": sheet_name}
-                ))
+        docs = PyMuPDFLoader(str(path)).load()
+        docs = [d for d in docs if d and d.page_content and d.page_content.strip()]
+        if docs:
+            return docs
+    except Exception:
+        pass
+    try:
+        docs = PyPDFLoader(str(path)).load()
+        docs = [d for d in docs if d and d.page_content and d.page_content.strip()]
+        return docs
     except Exception as e:
         print(f"  ⚠️  跳过 {path.name}：{e}")
-    return docs
+    return []
+
+
+def load_docx(path: pathlib.Path) -> list[Document]:
+    """Docx2txt 优先，格式不符（伪装 .docx 的旧 .doc）fallback 到 textutil。"""
+    try:
+        docs = Docx2txtLoader(str(path)).load()
+        if docs and any(d.page_content.strip() for d in docs):
+            return docs
+    except Exception:
+        pass
+    return load_doc(path)
+
 
 def load_doc(path: pathlib.Path) -> list[Document]:
     """用 macOS 自带 textutil 读取旧版 .doc 文件。"""
@@ -47,6 +60,29 @@ def load_doc(path: pathlib.Path) -> list[Document]:
         print(f"  ⚠️  跳过 {path.name}：{e}")
     return []
 
+
+def load_xlsx(path: pathlib.Path) -> list[Document]:
+    """openpyxl 优先（.xlsx），失败时用 xlrd（旧 .xls 格式）。"""
+    docs = []
+    for engine in ("openpyxl", "xlrd"):
+        try:
+            xl = pd.read_excel(path, sheet_name=None, dtype=str, engine=engine)
+            for sheet_name, df in xl.items():
+                df = df.fillna("")
+                text = f"[{path.name} — {sheet_name}]\n"
+                text += df.to_string(index=False)
+                if text.strip():
+                    docs.append(Document(
+                        page_content=text,
+                        metadata={"source": str(path), "sheet": sheet_name}
+                    ))
+            return docs  # 成功就直接返回
+        except Exception:
+            continue
+    print(f"  ⚠️  跳过 {path.name}：两种引擎均无法读取")
+    return []
+
+
 def load_all_documents() -> list[Document]:
     all_docs = []
     files = sorted(MATERIALS_DIR.rglob("*"))
@@ -55,23 +91,21 @@ def load_all_documents() -> list[Document]:
     print(f"  找到 {len(files)} 个文件")
     for f in files:
         print(f"  📄 {f.relative_to(MATERIALS_DIR)}")
-        try:
-            suffix = f.suffix.lower()
-            if suffix == ".pdf":
-                docs = PyMuPDFLoader(str(f)).load()
-            elif suffix == ".docx":
-                docs = Docx2txtLoader(str(f)).load()
-            elif suffix == ".doc":
-                docs = load_doc(f)
-            elif suffix in {".xlsx", ".xls"}:
-                docs = load_xlsx(f)
-            else:
-                continue
-            all_docs.extend(docs)
-        except Exception as e:
-            print(f"  ⚠️  跳过 {f.name}：{e}")
+        suffix = f.suffix.lower()
+        if suffix == ".pdf":
+            docs = load_pdf(f)
+        elif suffix == ".docx":
+            docs = load_docx(f)
+        elif suffix == ".doc":
+            docs = load_doc(f)
+        elif suffix in {".xlsx", ".xls"}:
+            docs = load_xlsx(f)
+        else:
+            continue
+        all_docs.extend(docs)
 
     return all_docs
+
 
 # ── 主流程 ────────────────────────────────────────────────────────────────────
 
@@ -81,7 +115,7 @@ print(f"✅ 共加载 {len(docs)} 个文档片段")
 
 print("✂️  切分 chunks（中文分句模式）...")
 splitter = RecursiveCharacterTextSplitter(
-    chunk_size=400,       # 中文字符密度高，400字约等于英文600词的信息量
+    chunk_size=400,
     chunk_overlap=50,
     separators=CHINESE_SEPARATORS,
 )
