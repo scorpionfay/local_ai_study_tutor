@@ -178,7 +178,7 @@ def async_save_memory(messages: list, embeddings, llm):
 # ── Chain ─────────────────────────────────────────────────────────────────────
 
 def build_chain():
-    embeddings = OllamaEmbeddings(model="nomic-embed-text")
+    embeddings = OllamaEmbeddings(model="shaw/dmeta-embedding-zh")
     db = Chroma(
         persist_directory="./db",
         embedding_function=embeddings
